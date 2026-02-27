@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: risk-engine
+  namespace: supply-shock
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: risk-engine
+  template:
+    metadata:
+      labels:
+        app: risk-engine
+    spec:
+      containers:
+        - name: risk-engine
+          image: ghcr.io/shiroonigami23-ui/global-supply-shock-platform/risk-engine:latest
+          imagePullPolicy: Always
+          env:
+            - name: KAFKA_BROKERS
+              valueFrom:
+                secretKeyRef:
+                  name: supply-shock-secrets
+                  key: kafka-brokers
+            - name: KAFKA_TOPIC_SIGNALS
+              valueFrom:
+                configMapKeyRef:
+                  name: supply-shock-config
+                  key: KAFKA_TOPIC_SIGNALS
+            - name: KAFKA_TOPIC_RISK
+              valueFrom:
+                configMapKeyRef:
+                  name: supply-shock-config
+                  key: KAFKA_TOPIC_RISK
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: supply-shock-secrets
+                  key: database-url
+            - name: CONSUMER_GROUP_PREFIX
+              value: "supplyshock"
+          resources:
+            requests:
+              cpu: "200m"
+              memory: "256Mi"
+            limits:
+              cpu: "2"
+              memory: "1Gi"

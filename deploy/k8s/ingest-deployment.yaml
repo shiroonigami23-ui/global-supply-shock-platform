@@ -1,0 +1,61 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ingest
+  namespace: supply-shock
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: ingest
+  template:
+    metadata:
+      labels:
+        app: ingest
+    spec:
+      containers:
+        - name: ingest
+          image: ghcr.io/shiroonigami23-ui/global-supply-shock-platform/ingest:latest
+          imagePullPolicy: Always
+          env:
+            - name: HTTP_ADDR
+              valueFrom:
+                configMapKeyRef:
+                  name: supply-shock-config
+                  key: INGEST_HTTP_ADDR
+            - name: KAFKA_BROKERS
+              valueFrom:
+                secretKeyRef:
+                  name: supply-shock-secrets
+                  key: kafka-brokers
+            - name: KAFKA_TOPIC_SIGNALS
+              valueFrom:
+                configMapKeyRef:
+                  name: supply-shock-config
+                  key: KAFKA_TOPIC_SIGNALS
+            - name: SIMULATOR_TICK_SECONDS
+              valueFrom:
+                configMapKeyRef:
+                  name: supply-shock-config
+                  key: SIMULATOR_TICK_SECONDS
+          ports:
+            - containerPort: 8081
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8081
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8081
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "800m"
+              memory: "512Mi"

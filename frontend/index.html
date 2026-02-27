@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Supply Shock Command Center</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div class="page">
+    <aside class="sidebar">
+      <h1>Supply Shock</h1>
+      <p class="sub">Global disruption command center</p>
+
+      <div class="filters">
+        <label>
+          Time Window
+          <select id="window-hours">
+            <option value="6">Last 6h</option>
+            <option value="24" selected>Last 24h</option>
+            <option value="72">Last 72h</option>
+            <option value="168">Last 7d</option>
+          </select>
+        </label>
+        <button id="refresh-btn">Refresh</button>
+      </div>
+
+      <div class="legend">
+        <h2>Status</h2>
+        <p><span class="dot critical"></span> Critical >= 90</p>
+        <p><span class="dot high"></span> High >= 75</p>
+        <p><span class="dot medium"></span> Medium >= 60</p>
+        <p><span class="dot low"></span> Low < 60</p>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="main-header">
+        <h2>Operational Dashboard</h2>
+        <span id="last-updated">Updated: -</span>
+      </header>
+
+      <section class="metrics" id="metrics"></section>
+
+      <section class="panel">
+        <h3>Risk Trend (avg score by hour)</h3>
+        <div id="trend-chart" class="bars"></div>
+      </section>
+
+      <section class="grid-two">
+        <section class="panel">
+          <h3>Current Hotspots</h3>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Country</th>
+                  <th>Region</th>
+                  <th>Commodity</th>
+                  <th>Avg Risk</th>
+                  <th>Active Alerts</th>
+                </tr>
+              </thead>
+              <tbody id="hotspots-body"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="panel">
+          <h3>Open Alerts</h3>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>When</th>
+                  <th>Location</th>
+                  <th>Commodity</th>
+                  <th>Risk</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="alerts-body"></tbody>
+            </table>
+          </div>
+        </section>
+      </section>
+
+      <section class="panel">
+        <h3>Recent Risk Events</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>Country</th>
+                <th>Region</th>
+                <th>Commodity</th>
+                <th>Risk</th>
+              </tr>
+            </thead>
+            <tbody id="risks-body"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script type="module" src="./app.js"></script>
+</body>
+</html>

@@ -1,106 +1,112 @@
 # Global Supply Shock Early-Warning Platform
 
-A highly scalable event-driven platform written in Go to detect and surface disruption risks for essential goods across countries.
+A production-style, event-driven platform in Go that detects and alerts on disruption risk for essential commodities across countries.
 
-## What It Solves
+## Included Stack
 
-Governments, NGOs, and distributors need early warning when medicines, food staples, or fuel are at risk due to shipping delays, weather disruption, port congestion, price spikes, or geopolitical events.
+Backend services:
 
-This platform ingests global signals, computes risk scores by geography and commodity, and raises actionable alerts.
+- `ingest` - receives raw disruption signals and publishes to Kafka
+- `risk-engine` - computes rolling risk scores and stores events
+- `alert-service` - opens alerts using threshold and cooldown rules
+- `query-api` - serves dashboard/API reads and alert lifecycle updates
 
-## Architecture (MVP)
+Frontend:
 
-Services:
+- `frontend` - responsive dashboard with summary cards, trend bars, hotspots, open alerts, and live risk feed
 
-- `ingest`: receives external signal events and publishes to Kafka topic `signals.raw`
-- `risk-engine`: consumes raw signals, computes risk score, stores to Postgres, publishes to `risk.scored`
-- `alert-service`: consumes risk events and opens alerts based on threshold + cooldown policies
-- `query-api`: provides read/update APIs for risks, alerts, and dashboard summary
+Data + stream:
 
-Infrastructure:
-
-- Kafka (Redpanda in local compose)
+- Redpanda (Kafka API)
 - PostgreSQL
-- Docker Compose for local end-to-end runtime
 
-## Repository Layout
+Delivery and operations:
 
-- `cmd/` - service entrypoints
-- `internal/contracts` - shared event contracts
-- `internal/risk` - scoring engine
-- `internal/storage` - Postgres access + embedded SQL migrations
-- `deploy/k8s` - Kubernetes starter manifests
-- `migrations` - SQL migrations mirror
-- `docs` - architecture, API, deployment, scaling notes
+- Dockerfiles and `docker-compose.yml`
+- Kubernetes manifests (`deploy/k8s`)
+- CI workflow for Go build
+- Image publish workflow to GHCR
 
-## Quick Start (Local)
+## Quick Start (Docker)
 
-1. Start stack:
+1. Start Docker Desktop.
+2. Run:
 
 ```bash
 docker compose up --build
 ```
 
-2. Check health:
+3. Open:
+
+- Dashboard: `http://localhost:3000`
+- Query API: `http://localhost:8080`
+- Ingest API: `http://localhost:8081`
+- Redpanda Console: `http://localhost:8082`
+
+4. Generate sample data:
 
 ```bash
-curl http://localhost:8080/healthz
-curl http://localhost:8081/healthz
+curl -X POST http://localhost:8081/v1/simulate -H "Content-Type: application/json" -d '{"count": 500}'
 ```
 
-3. Publish simulated events:
-
-```bash
-curl -X POST http://localhost:8081/v1/simulate -H "Content-Type: application/json" -d '{"count": 200}'
-```
-
-4. Query risk and alerts:
-
-```bash
-curl "http://localhost:8080/v1/risks?limit=20"
-curl "http://localhost:8080/v1/alerts?status=open&limit=20"
-curl "http://localhost:8080/v1/dashboard/summary"
-```
-
-## Manual Run (without Docker)
-
-Prereqs:
-
-- Go 1.26+
-- Postgres running
-- Kafka-compatible broker running
-
-Then:
-
-```bash
-go mod tidy
-go run ./cmd/query-api
-go run ./cmd/risk-engine
-go run ./cmd/alert-service
-go run ./cmd/ingest
-```
-
-## API Summary
+## Main API Endpoints
 
 - `POST /v1/signals` (ingest)
 - `POST /v1/simulate` (ingest)
-- `GET /v1/risks` (query-api)
-- `GET /v1/alerts` (query-api)
-- `PATCH /v1/alerts/{id}/ack` (query-api)
-- `PATCH /v1/alerts/{id}/resolve` (query-api)
-- `GET /v1/dashboard/summary` (query-api)
+- `GET /v1/risks`
+- `GET /v1/alerts`
+- `PATCH /v1/alerts/{id}/ack`
+- `PATCH /v1/alerts/{id}/resolve`
+- `GET /v1/dashboard/summary`
+- `GET /v1/dashboard/timeseries?hours=24`
+- `GET /v1/dashboard/hotspots?hours=24&limit=20`
 
-Detailed API examples: `docs/api.md`
+## Kubernetes
 
-## Production Launch Recommendation
+Full manifests are in `deploy/k8s/`:
 
-For international scale, deploy on Kubernetes using managed data services:
+- deployments: ingest, risk-engine, alert-service, query-api, dashboard
+- services: ingest, query-api, dashboard
+- autoscaling: query-api + risk-engine HPAs
+- ingress: dashboard + API routes
+- `secrets.example.yaml` template
 
-- Kubernetes: GKE / EKS / AKS
-- Kafka: Confluent Cloud or AWS MSK
-- Postgres: Cloud SQL / RDS / AlloyDB
-- Object storage for long-term event archive: S3 / GCS
-- Observability: OpenTelemetry + Prometheus + Grafana + Loki
+Apply:
+
+```bash
+kubectl apply -k deploy/k8s
+```
+
+## Build and Test
+
+```bash
+go mod tidy
+go build ./...
+go test ./...
+```
+
+## Image Publishing
+
+Workflow: `.github/workflows/docker-images.yml`
+
+Builds and pushes:
+
+- `ghcr.io/shiroonigami23-ui/global-supply-shock-platform/ingest`
+- `ghcr.io/shiroonigami23-ui/global-supply-shock-platform/risk-engine`
+- `ghcr.io/shiroonigami23-ui/global-supply-shock-platform/alert-service`
+- `ghcr.io/shiroonigami23-ui/global-supply-shock-platform/query-api`
+- `ghcr.io/shiroonigami23-ui/global-supply-shock-platform/dashboard`
+
+## Recommended Production Launch
+
+For international scale:
+
+1. Kubernetes: EKS or GKE
+2. Kafka: Confluent Cloud or AWS MSK
+3. Postgres: RDS or Cloud SQL with read replicas
+4. Edge: WAF + global load balancer + TLS
+5. Observability: OpenTelemetry + Prometheus + Grafana + Loki
+6. SLOs: risk processing latency, alert freshness, consumer lag, API p95
 
 See `docs/deployment.md` and `docs/scaling.md`.
 

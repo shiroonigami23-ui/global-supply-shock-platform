@@ -188,6 +188,23 @@ type DashboardSummary struct {
 	AvgRiskScore24h float64 `json:"avg_risk_score_24h"`
 }
 
+type DashboardSeriesPoint struct {
+	BucketStart      time.Time `json:"bucket_start"`
+	AvgRiskScore     float64   `json:"avg_risk_score"`
+	RiskEvents       int       `json:"risk_events"`
+	OpenAlertsOpened int       `json:"open_alerts_opened"`
+}
+
+type Hotspot struct {
+	Country         string    `json:"country"`
+	Region          string    `json:"region"`
+	Commodity       string    `json:"commodity"`
+	AvgRiskScore    float64   `json:"avg_risk_score"`
+	LatestRiskScore float64   `json:"latest_risk_score"`
+	ActiveAlerts    int       `json:"active_alerts"`
+	LastEventAt     time.Time `json:"last_event_at"`
+}
+
 func (r *Repository) DashboardSummary(ctx context.Context) (DashboardSummary, error) {
 	var summary DashboardSummary
 	err := r.pool.QueryRow(ctx, `
@@ -202,6 +219,117 @@ func (r *Repository) DashboardSummary(ctx context.Context) (DashboardSummary, er
 		return DashboardSummary{}, fmt.Errorf("dashboard summary: %w", err)
 	}
 	return summary, nil
+}
+
+func (r *Repository) DashboardTimeSeries(ctx context.Context, hours int) ([]DashboardSeriesPoint, error) {
+	if hours <= 0 || hours > 168 {
+		hours = 24
+	}
+	interval := fmt.Sprintf("%d hours", hours)
+
+	rows, err := r.pool.Query(ctx, `
+        WITH buckets AS (
+            SELECT generate_series(
+                date_trunc('hour', NOW() - $1::interval),
+                date_trunc('hour', NOW()),
+                interval '1 hour'
+            ) AS bucket_start
+        )
+        SELECT
+            b.bucket_start,
+            COALESCE((
+                SELECT AVG(re.risk_score)
+                FROM risk_events re
+                WHERE re.event_ts >= b.bucket_start
+                  AND re.event_ts < b.bucket_start + interval '1 hour'
+            ), 0) AS avg_risk_score,
+            COALESCE((
+                SELECT COUNT(*)
+                FROM risk_events re
+                WHERE re.event_ts >= b.bucket_start
+                  AND re.event_ts < b.bucket_start + interval '1 hour'
+            ), 0) AS risk_events,
+            COALESCE((
+                SELECT COUNT(*)
+                FROM alerts a
+                WHERE a.created_at >= b.bucket_start
+                  AND a.created_at < b.bucket_start + interval '1 hour'
+                  AND a.status = 'open'
+            ), 0) AS open_alerts_opened
+        FROM buckets b
+        ORDER BY b.bucket_start ASC
+    `, interval)
+	if err != nil {
+		return nil, fmt.Errorf("dashboard timeseries query: %w", err)
+	}
+	defer rows.Close()
+
+	points := make([]DashboardSeriesPoint, 0, 48)
+	for rows.Next() {
+		var point DashboardSeriesPoint
+		if err := rows.Scan(&point.BucketStart, &point.AvgRiskScore, &point.RiskEvents, &point.OpenAlertsOpened); err != nil {
+			return nil, fmt.Errorf("dashboard timeseries scan: %w", err)
+		}
+		points = append(points, point)
+	}
+
+	return points, nil
+}
+
+func (r *Repository) Hotspots(ctx context.Context, hours, limit int) ([]Hotspot, error) {
+	if hours <= 0 || hours > 168 {
+		hours = 24
+	}
+	if limit <= 0 || limit > 100 {
+		limit = 20
+	}
+
+	interval := fmt.Sprintf("%d hours", hours)
+	rows, err := r.pool.Query(ctx, `
+        SELECT
+            re.country,
+            re.region,
+            re.commodity,
+            ROUND(AVG(re.risk_score)::numeric, 2)::float8 AS avg_risk_score,
+            MAX(re.risk_score) AS latest_risk_score,
+            MAX(re.event_ts) AS last_event_at,
+            COALESCE((
+                SELECT COUNT(*)
+                FROM alerts a
+                WHERE a.country = re.country
+                  AND a.region = re.region
+                  AND a.commodity = re.commodity
+                  AND a.status IN ('open', 'acknowledged')
+            ), 0) AS active_alerts
+        FROM risk_events re
+        WHERE re.event_ts >= NOW() - $1::interval
+        GROUP BY re.country, re.region, re.commodity
+        ORDER BY avg_risk_score DESC, active_alerts DESC, last_event_at DESC
+        LIMIT $2
+    `, interval, limit)
+	if err != nil {
+		return nil, fmt.Errorf("hotspots query: %w", err)
+	}
+	defer rows.Close()
+
+	hotspots := make([]Hotspot, 0, limit)
+	for rows.Next() {
+		var hotspot Hotspot
+		if err := rows.Scan(
+			&hotspot.Country,
+			&hotspot.Region,
+			&hotspot.Commodity,
+			&hotspot.AvgRiskScore,
+			&hotspot.LatestRiskScore,
+			&hotspot.LastEventAt,
+			&hotspot.ActiveAlerts,
+		); err != nil {
+			return nil, fmt.Errorf("hotspots scan: %w", err)
+		}
+		hotspots = append(hotspots, hotspot)
+	}
+
+	return hotspots, nil
 }
 
 func nullableUUID(v string) any {

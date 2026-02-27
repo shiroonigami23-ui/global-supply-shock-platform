@@ -1,26 +1,27 @@
-# Scaling Notes
+# Scaling
 
-## Throughput
+## Throughput Strategy
 
-- Partition Kafka topics by `country|commodity` key.
-- Scale `risk-engine` and `alert-service` by consumer group instance count.
-- Use batch writes to Postgres for high event rates.
+- Partition Kafka by `country|commodity`
+- Scale consumers (`risk-engine`, `alert-service`) by partition count
+- Keep stateless processors for easy horizontal scaling
 
 ## Latency Targets
 
-- Ingest API p95 < 50ms
-- Risk scoring end-to-end < 2s
-- Alert creation after threshold crossing < 5s
+- ingest API p95 < 75ms
+- scoring pipeline < 2s end-to-end
+- alert creation < 5s after threshold crossing
 
-## Data Growth
+## Data Growth Management
 
-- Partition `risk_events` by day/month.
-- Archive old events to object storage.
-- Keep `alerts` hot in primary DB and age out closed alerts by policy.
+- Partition `risk_events` by date in managed Postgres
+- Archive old data to object storage
+- Keep recent slices in primary DB for fast dashboard reads
 
-## Hardening Roadmap
+## Backend Optimization Roadmap
 
-1. Add idempotency keys and dedupe table.
-2. Add schema registry and versioned contracts.
-3. Add tenant-aware quotas and rate limits.
-4. Add canary scoring model and drift monitoring.
+1. Batch inserts in risk-engine
+2. Introduce materialized views for hotspot queries
+3. Add read cache for dashboard endpoints
+4. Add dead-letter topic and replay tooling
+5. Add tenant-aware quotas and auth

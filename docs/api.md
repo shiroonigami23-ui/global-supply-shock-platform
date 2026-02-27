@@ -1,15 +1,18 @@
 # API
 
-Base URLs:
+## Base URLs
 
-- ingest: `http://localhost:8081`
-- query-api: `http://localhost:8080`
+- Local frontend proxy: `http://localhost:3000`
+- Direct query-api: `http://localhost:8080`
+- Direct ingest: `http://localhost:8081`
 
-## POST /v1/signals
+## Ingest
 
-Publishes one raw signal.
+### POST /v1/signals
 
-Example request:
+Publish one raw signal.
+
+Example:
 
 ```json
 {
@@ -24,15 +27,17 @@ Example request:
 }
 ```
 
-## POST /v1/simulate
+### POST /v1/simulate
 
-Publishes N generated signals.
+Generate N random events for demo load.
 
 ```json
 { "count": 200 }
 ```
 
-## GET /v1/risks
+## Query API
+
+### GET /v1/risks
 
 Query params:
 
@@ -40,21 +45,34 @@ Query params:
 - `commodity` optional
 - `limit` optional (max 500)
 
-## GET /v1/alerts
+### GET /v1/alerts
 
 Query params:
 
 - `status` optional (`open`, `acknowledged`, `resolved`)
 - `limit` optional
 
-## PATCH /v1/alerts/{id}/ack
+### PATCH /v1/alerts/{id}/ack
 
-Marks an alert as acknowledged.
+Mark alert as acknowledged.
 
-## PATCH /v1/alerts/{id}/resolve
+### PATCH /v1/alerts/{id}/resolve
 
-Marks an alert as resolved.
+Mark alert as resolved.
 
-## GET /v1/dashboard/summary
+### GET /v1/dashboard/summary
 
-Returns aggregate counts and average risk score for last 24h.
+Returns top-level KPI metrics.
+
+### GET /v1/dashboard/timeseries?hours=24
+
+Returns hourly trend points:
+
+- `bucket_start`
+- `avg_risk_score`
+- `risk_events`
+- `open_alerts_opened`
+
+### GET /v1/dashboard/hotspots?hours=24&limit=20
+
+Returns highest-risk geo+commodity groups with active alert count.

@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: alert-service
+  namespace: supply-shock
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: alert-service
+  template:
+    metadata:
+      labels:
+        app: alert-service
+    spec:
+      containers:
+        - name: alert-service
+          image: ghcr.io/shiroonigami23-ui/global-supply-shock-platform/alert-service:latest
+          imagePullPolicy: Always
+          env:
+            - name: KAFKA_BROKERS
+              valueFrom:
+                secretKeyRef:
+                  name: supply-shock-secrets
+                  key: kafka-brokers
+            - name: KAFKA_TOPIC_RISK
+              valueFrom:
+                configMapKeyRef:
+                  name: supply-shock-config
+                  key: KAFKA_TOPIC_RISK
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: supply-shock-secrets
+                  key: database-url
+            - name: ALERT_THRESHOLD
+              valueFrom:
+                configMapKeyRef:
+                  name: supply-shock-config
+                  key: ALERT_THRESHOLD
+            - name: ALERT_COOLDOWN_MINUTES
+              valueFrom:
+                configMapKeyRef:
+                  name: supply-shock-config
+                  key: ALERT_COOLDOWN_MINUTES
+            - name: CONSUMER_GROUP_PREFIX
+              value: "supplyshock"
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "1"
+              memory: "512Mi"

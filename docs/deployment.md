@@ -1,31 +1,53 @@
 # Deployment
 
-## Recommended Production Stack
+## Recommended Production Topology
 
-- Compute: Kubernetes (GKE/EKS/AKS)
-- Event stream: Confluent Cloud Kafka or AWS MSK
-- Database: managed PostgreSQL (Cloud SQL / RDS / AlloyDB)
-- Secrets: cloud secret manager
-- API edge: cloud load balancer + WAF
-- Observability: OpenTelemetry + Prometheus + Grafana + Loki
+- Kubernetes cluster per major geography
+- Managed Kafka (Confluent Cloud or MSK)
+- Managed Postgres with read replicas
+- Ingress controller + WAF + TLS cert manager
+- Centralized logs, traces, and metrics
 
-## Multi-Region Pattern
+## Container Images
 
-- Active-active ingest endpoints per region.
-- Kafka cluster with cross-region replication.
-- Regional risk/alert workers reading local replicas.
-- Query API with geo-routing and read replicas.
+Push these images to GHCR or your registry:
 
-## Reliability Controls
+- `ingest`
+- `risk-engine`
+- `alert-service`
+- `query-api`
+- `dashboard`
 
-- Consumer lag alerts
-- Dead-letter topic for malformed events
-- Backpressure with producer retry + circuit breaker
-- Blue/green deployments for service updates
+## Kubernetes Apply
 
-## Security Controls
+```bash
+kubectl apply -k deploy/k8s
+```
 
-- mTLS between services
-- JWT/OAuth2 at API edge
-- Row-level tenant segregation in DB
-- Audit log for alert status changes
+## Required Secret Values
+
+- `database-url`
+- `kafka-brokers`
+
+See `deploy/k8s/secrets.example.yaml`.
+
+## Network Design
+
+- Public routes:
+  - dashboard host (UI + `/v1` API)
+  - optional dedicated ingest host
+- Internal-only services:
+  - risk-engine
+  - alert-service
+
+## Operational Policies
+
+- Pod autoscaling enabled for query-api and risk-engine
+- Horizontal scaling through Kafka partitions and consumer groups
+- Alerting on consumer lag, DB saturation, and API latency
+
+## Disaster Recovery
+
+- Multi-AZ Kafka and Postgres
+- Snapshot + point-in-time restore for Postgres
+- Replay from Kafka offsets for rebuilding downstream state

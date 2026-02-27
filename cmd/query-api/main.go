@@ -43,6 +43,7 @@ func main() {
 	router.Use(middleware.RealIP)
 	router.Use(middleware.Recoverer)
 	router.Use(middleware.Timeout(15 * time.Second))
+	router.Use(corsMiddleware)
 
 	router.Get("/healthz", func(w http.ResponseWriter, _ *http.Request) {
 		httpx.WriteJSON(w, http.StatusOK, map[string]any{"ok": true, "service": "query-api"})
@@ -100,6 +101,34 @@ func main() {
 		httpx.WriteJSON(w, http.StatusOK, summary)
 	})
 
+	router.Get("/v1/dashboard/timeseries", func(w http.ResponseWriter, r *http.Request) {
+		hours := parseBoundedInt(r.URL.Query().Get("hours"), 24, 1, 168)
+		points, err := repo.DashboardTimeSeries(r.Context(), hours)
+		if err != nil {
+			httpx.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
+			return
+		}
+		httpx.WriteJSON(w, http.StatusOK, map[string]any{
+			"hours": hours,
+			"items": points,
+		})
+	})
+
+	router.Get("/v1/dashboard/hotspots", func(w http.ResponseWriter, r *http.Request) {
+		hours := parseBoundedInt(r.URL.Query().Get("hours"), 24, 1, 168)
+		limit := parseBoundedInt(r.URL.Query().Get("limit"), 20, 1, 100)
+
+		hotspots, err := repo.Hotspots(r.Context(), hours, limit)
+		if err != nil {
+			httpx.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
+			return
+		}
+		httpx.WriteJSON(w, http.StatusOK, map[string]any{
+			"hours": hours,
+			"items": hotspots,
+		})
+	})
+
 	server := &http.Server{
 		Addr:              cfg.HTTPAddr,
 		Handler:           router,
@@ -133,10 +162,36 @@ func parseLimit(raw string, fallback int) int {
 	return n
 }
 
+func parseBoundedInt(raw string, fallback, min, max int) int {
+	n := parseLimit(raw, fallback)
+	if n < min {
+		return min
+	}
+	if n > max {
+		return max
+	}
+	return n
+}
+
 func handleStatusUpdateError(w http.ResponseWriter, err error) {
 	if errors.Is(err, pgx.ErrNoRows) {
 		httpx.WriteJSON(w, http.StatusNotFound, map[string]any{"error": "alert not found"})
 		return
 	}
 	httpx.WriteJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
+}
+
+func corsMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET,POST,PATCH,OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type,Authorization")
+
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
 }

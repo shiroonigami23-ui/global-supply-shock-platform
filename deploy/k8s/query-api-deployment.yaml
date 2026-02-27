@@ -4,7 +4,7 @@ metadata:
   name: query-api
   namespace: supply-shock
 spec:
-  replicas: 2
+  replicas: 3
   selector:
     matchLabels:
       app: query-api
@@ -17,10 +17,12 @@ spec:
         - name: query-api
           image: ghcr.io/shiroonigami23-ui/global-supply-shock-platform/query-api:latest
           imagePullPolicy: Always
-          envFrom:
-            - configMapRef:
-                name: supply-shock-config
           env:
+            - name: HTTP_ADDR
+              valueFrom:
+                configMapKeyRef:
+                  name: supply-shock-config
+                  key: QUERY_API_HTTP_ADDR
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
@@ -42,8 +44,8 @@ spec:
             periodSeconds: 10
           resources:
             requests:
-              cpu: "100m"
-              memory: "128Mi"
+              cpu: "150m"
+              memory: "256Mi"
             limits:
-              cpu: "1"
-              memory: "512Mi"
+              cpu: "1500m"
+              memory: "1Gi"
