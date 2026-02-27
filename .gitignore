@@ -1,0 +1,27 @@
+# Binaries and build
+bin/
+dist/
+*.exe
+*.dll
+*.so
+*.dylib
+*.out
+*.test
+
+# Go workspace
+vendor/
+coverage.out
+
+# Environment
+.env
+
+# IDE
+.idea/
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker overrides
+*.local.yml

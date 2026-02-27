@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: query-api
+  namespace: supply-shock
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: query-api
+  template:
+    metadata:
+      labels:
+        app: query-api
+    spec:
+      containers:
+        - name: query-api
+          image: ghcr.io/shiroonigami23-ui/global-supply-shock-platform/query-api:latest
+          imagePullPolicy: Always
+          envFrom:
+            - configMapRef:
+                name: supply-shock-config
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: supply-shock-secrets
+                  key: database-url
+          ports:
+            - containerPort: 8080
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "1"
+              memory: "512Mi"

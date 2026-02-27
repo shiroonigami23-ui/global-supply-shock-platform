@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: supply-shock-config
+  namespace: supply-shock
+data:
+  HTTP_ADDR: ":8080"
+  KAFKA_BROKERS: "kafka-bootstrap.kafka.svc.cluster.local:9092"
+  KAFKA_TOPIC_SIGNALS: "signals.raw"
+  KAFKA_TOPIC_RISK: "risk.scored"
+  ALERT_THRESHOLD: "72"
+  ALERT_COOLDOWN_MINUTES: "30"
